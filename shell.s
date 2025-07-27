@@ -3,7 +3,7 @@
     .set PROMPT_LEN, . - shell_prompt - 1 @ Calculate length: current address - start address - 1
 
     test_string: .asciz "hello" @ String to compare user input against
-    test_string_len = . - test_string - 1 @ (Not strictly needed for strcmp, but good practice)
+    test_string_len = . - test_string - 1 
 
     hello_world_msg: .asciz "Hello World!\n"
     HELLO_WORLD_MSG_LEN = . - hello_world_msg - 1
@@ -87,7 +87,7 @@ after_strip:
 continue_strcmp:
     @ Compare input with "hello"
     LDR     R0, =input_buffer   @ First string address (user input)
-    LDR     R1, =test_string    @ Second string address (e.g., "hello")
+    LDR     R1, =test_string    @ Second string address
     BL      strcmp              @ Branch with Link to strcmp. LR now holds return address.
 
     CMP     R0, #0              @ Compare R0 with 0
@@ -138,19 +138,14 @@ handle_exit_command_match:
     SVC     #0                  @ Execute system call to exit
 
 handle_clear_command_match:
-    MOV     R7, #4              @ SYS_WRITE
-    MOV     R0, #1              @ File descriptor for stdout
-    LDR     R1, =clear_screen_ansi  @ ANSI escape code to clear the screen
+    MOV     R7, #4                      @ SYS_WRITE
+    MOV     R0, #1                      @ File descriptor for stdout
+    LDR     R1, =clear_screen_ansi      @ ANSI escape code to clear the screen
     MOV     R2, #CLEAR_SCREEN_ANSI_LEN  @ Length of the escape code
-    SVC     #0                  @ Execute system call to clear the screen
+    SVC     #0                          @ Execute system call to clear the screen
     B       shell_loop
 
 strings_are_not_equal:
-    MOV     R7, #4
-    MOV     R0, #1
-    LDR     R1, =invalid_input_msg
-    MOV     R2, #INVALID_INPUT_MSG_LEN
-    SVC     #0
     B       shell_loop
 
     @strcmp function definition
