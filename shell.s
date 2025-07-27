@@ -2,6 +2,7 @@
 .equ SYS_EXIT, 1
 .equ SYS_READ, 3
 .equ SYS_WRITE, 4
+.equ SYS_GETTIMEOFDAY, 78 @ System call for gettimeofday
 
 .equ STDIN, 0
 .equ STDOUT, 1
@@ -25,7 +26,10 @@
     help_cmd: .asciz "help"
     HELP_CMD_LEN = . - help_cmd - 1
 
-    help_msg: .asciz "Available commands:\n\nhello - Prints 'Hello World!'\nhelp - Lists all commands\nexit - Terminates the shell\nclear - Clears the screen\n"
+    color_cmd: .asciz "color"
+    .set COLOR_CMD_LEN, . - color_cmd - 1
+
+    help_msg: .asciz "Available commands:\n\nhello - Prints 'Hello World!'\nhelp - Lists all commands\nexit - Terminates the shell\nclear - Clears the screen\ncolor - Changes text color\n"
     HELP_MSG_LEN = . - help_msg - 1 
 
     exit_cmd: .asciz "exit"
@@ -36,6 +40,24 @@
 
     clear_screen_ansi: .asciz "\x1b[2J\x1b[H"
     CLEAR_SCREEN_ANSI_LEN = . - clear_screen_ansi - 1 
+
+    color_usage_msg: .asciz "Usage: color <red|green|blue|reset>\n"
+    .set COLOR_USAGE_MSG_LEN, . - color_usage_msg - 1
+
+    @ --- Color Argument Strings ---
+    red_str:   .asciz "red"
+    green_str: .asciz "green"
+    blue_str:  .asciz "blue"
+    reset_str: .asciz "reset"
+
+    ansi_red:    .asciz "\x1b[31m"
+    .set ANSI_RED_LEN, . - ansi_red - 1
+    ansi_green:  .asciz "\x1b[32m"
+    .set ANSI_GREEN_LEN, . - ansi_green - 1
+    ansi_blue:   .asciz "\x1b[34m"
+    .set ANSI_BLUE_LEN, . - ansi_blue - 1
+    ansi_reset:  .asciz "\x1b[0m"
+    .set ANSI_RESET_LEN, . - ansi_reset - 1
     
 
     .bss
@@ -109,7 +131,15 @@ continue_strcmp:
     LDR     R1, =help_cmd
     BL      strcmp
     CMP     R0, #0
-    BEQ     handle_help_command_match 
+    BEQ     handle_help_command_match
+
+    @ Compare with "color" command (special case with arguments)
+    LDR     R0, =input_buffer
+    LDR     R1, =color_cmd
+    MOV     R2, #COLOR_CMD_LEN
+    BL      strncmp
+    CMP     R0, #0
+    BEQ     handle_color_command 
 
     @Compare input with "exit"
     LDR     R0, =input_buffer
@@ -129,7 +159,7 @@ continue_strcmp:
 
 handle_hello_command_match:
     MOV     R7, #SYS_WRITE
-    MOV     R0, #SYS_EXIT
+    MOV     R0, #SYS_EXIT 
     LDR     R1, =hello_world_msg
     MOV     R2, #HELLO_WORLD_MSG_LEN
     SVC     #0
@@ -163,6 +193,79 @@ strings_are_not_equal:
     MOV     R2, #INVALID_INPUT_MSG_LEN
     SVC     #0
     B       shell_loop
+
+handle_color_command:
+    @ First, check if an argument was even provided.
+    SUB     R6, R5, #1              @ R6 = length of the input string
+    LDR     R7, =COLOR_CMD_LEN      @ R7 = length of "color" (5)
+    CMP     R6, R7                  @ Compare lengths
+    BEQ     invalid_color_arg       @ If equal, no argument was given.
+
+    @ Argument exists. Move pointer past "color " to read it.
+    LDR     R0, =input_buffer
+    ADD     R0, R0, #6
+
+    @ Check which color it is
+    LDR R1, =red_str
+    BL strcmp
+    CMP R0, #0
+    BEQ set_red
+
+    LDR R0, =input_buffer
+    ADD R0, R0, #6
+    LDR R1, =green_str
+    BL strcmp
+    CMP R0, #0
+    BEQ set_green
+
+    LDR R0, =input_buffer
+    ADD R0, R0, #6
+    LDR R1, =blue_str
+    BL strcmp
+    CMP R0, #0
+    BEQ set_blue
+
+    LDR R0, =input_buffer
+    ADD R0, R0, #6
+    LDR R1, =reset_str
+    BL strcmp
+    CMP R0, #0
+    BEQ set_reset
+
+    @ If we get here, the argument was not "red", "green", "blue", or "reset".
+    B       invalid_color_arg
+
+set_red:
+    LDR R1, =ansi_red
+    MOV R2, #ANSI_RED_LEN
+    B   print_color
+set_green:
+    LDR R1, =ansi_green
+    MOV R2, #ANSI_GREEN_LEN
+    B   print_color
+set_blue:
+    LDR R1, =ansi_blue
+    MOV R2, #ANSI_BLUE_LEN
+    B   print_color
+set_reset:
+    LDR R1, =ansi_reset
+    MOV R2, #ANSI_RESET_LEN
+    B   print_color
+
+print_color:
+    MOV     R7, #SYS_WRITE
+    MOV     R0, #STDOUT
+    SVC     #0
+    B       shell_loop
+
+invalid_color_arg:
+    @ This label is used if no arg is given OR if the arg is invalid.
+    MOV R7, #SYS_WRITE
+    MOV R0, #STDOUT
+    LDR R1, =color_usage_msg
+    MOV R2, #COLOR_USAGE_MSG_LEN
+    SVC #0
+    B   shell_loop
 
     @strcmp function definition
 
