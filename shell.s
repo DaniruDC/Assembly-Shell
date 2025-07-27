@@ -1,4 +1,4 @@
-@ --- Constants for System Calls and File Descriptors ---
+@ Constants for System Calls and File Descriptors
 .equ SYS_EXIT, 1
 .equ SYS_READ, 3
 .equ SYS_WRITE, 4
@@ -44,7 +44,7 @@
     color_usage_msg: .asciz "Usage: color <red|green|blue|reset>\n"
     .set COLOR_USAGE_MSG_LEN, . - color_usage_msg - 1
 
-    @ --- Heartsay Command Data ---
+    @ Heartsay Command Data
     heartsay_cmd: .asciz "heartsay"
     .set HEARTSAY_CMD_LEN, . - heartsay_cmd - 1
     heartsay_usage_msg: .asciz "Usage: heartsay <message>\n"
@@ -54,7 +54,7 @@
     heart_bottom: .asciz " >\n <3 <3 <3 <3\n"
     .set HEART_BOTTOM_LEN, . - heart_bottom -1
 
-    @ --- Color Argument Strings ---
+    @ Color Argument Strings
     red_str:   .asciz "red"
     green_str: .asciz "green"
     blue_str:  .asciz "blue"
@@ -205,11 +205,6 @@ handle_clear_command_match:
     B       shell_loop
 
 strings_are_not_equal:
-    MOV     R7, #SYS_WRITE
-    MOV     R0, #SYS_EXIT
-    LDR     R1, =invalid_input_msg
-    MOV     R2, #INVALID_INPUT_MSG_LEN
-    SVC     #0
     B       shell_loop
 
 handle_color_command:
@@ -287,28 +282,28 @@ invalid_color_arg:
 
 handle_heartsay_cmd:
     SUB     R6, R5, #1              @ R6 = length of the input string
-    LDR     R7, =HEARTSAY_CMD_LEN   @ R7 = length of "heartsay"
-    ADD     R7, R7, #1              @ Add 1 for the space: "heartsay "
-    CMP     R6, R7                  @ Is input length <= "heartsay "?
+    LDR     R4, =HEARTSAY_CMD_LEN   @ R4 = length of "heartsay"
+    ADD     R4, R4, #1              @ Add 1 for the space: "heartsay "
+    CMP     R6, R4                  @ Is input length <= "heartsay "?
     BLE     invalid_heartsay_arg    @ If so, no message was given.
 
-    @ --- Print top of heart ---
+    @ Print top of heart
     MOV R7, #SYS_WRITE
     MOV R0, #STDOUT
     LDR R1, =heart_top
     LDR R2, =HEART_TOP_LEN
     SVC #0;
 
-    @ --- Print user message ---
+    @ Print user message
     LDR     R1, =input_buffer       @ R1 = start of buffer
-    ADD     R1, R1, R7              @ R1 = start of buffer + len("heartsay ") = message
-    SUB     R2, R6, R7              @ R2 = total_len - len("heartsay ") = msg_len
+    ADD     R1, R1, R4              @ R1 = start of buffer + len("heartsay ") = message
+    SUB     R2, R6, R4              @ R2 = total_len - len("heartsay ") = msg_len
     MOV R7, #SYS_WRITE
     MOV R0, #STDOUT
     SVC #0;
 
-    @ --- Print bottom of heart ---
-    MOV R7, #SYS_WRITE 
+    @ Print bottom of heart
+    MOV R7, #SYS_WRITE
     MOV R0, #STDOUT
     LDR R1, =heart_bottom
     LDR R2, =HEART_BOTTOM_LEN
