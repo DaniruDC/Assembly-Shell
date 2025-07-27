@@ -29,7 +29,7 @@
     color_cmd: .asciz "color"
     .set COLOR_CMD_LEN, . - color_cmd - 1
 
-    help_msg: .asciz "Available commands:\n\nhello - Prints 'Hello World!'\nhelp - Lists all commands\nexit - Terminates the shell\nclear - Clears the screen\ncolor - Changes text color\n"
+    help_msg: .asciz "Available commands:\n\nhello - Prints 'Hello World!'\nhelp - Lists all commands\nexit - Terminates the shell\nclear - Clears the screen\ncolor - Changes text color\nheartsay - Prints a message in a heart (e.g., heartsay hello)\n"
     HELP_MSG_LEN = . - help_msg - 1 
 
     exit_cmd: .asciz "exit"
@@ -43,6 +43,16 @@
 
     color_usage_msg: .asciz "Usage: color <red|green|blue|reset>\n"
     .set COLOR_USAGE_MSG_LEN, . - color_usage_msg - 1
+
+    @ --- Heartsay Command Data ---
+    heartsay_cmd: .asciz "heartsay"
+    .set HEARTSAY_CMD_LEN, . - heartsay_cmd - 1
+    heartsay_usage_msg: .asciz "Usage: heartsay <message>\n"
+    .set HEARTSAY_USAGE_MSG_LEN, . - heartsay_usage_msg - 1
+    heart_top: .asciz " <3 <3 <3 <3\n< "
+    .set HEART_TOP_LEN, . - heart_top -1
+    heart_bottom: .asciz " >\n <3 <3 <3 <3\n"
+    .set HEART_BOTTOM_LEN, . - heart_bottom -1
 
     @ --- Color Argument Strings ---
     red_str:   .asciz "red"
@@ -154,6 +164,14 @@ continue_strcmp:
     BL      strcmp
     CMP     R0, #0
     BEQ     handle_clear_command_match
+
+    @ Compare with "heartsay" (uses strncmp)
+    LDR     R0, =input_buffer
+    LDR     R1, =heartsay_cmd
+    MOV     R2, #HEARTSAY_CMD_LEN
+    BL      strncmp
+    CMP     R0, #0
+    BEQ     handle_heartsay_cmd
 
     B       strings_are_not_equal @ If R0 is not 0, branch to not equal handler
 
@@ -267,6 +285,44 @@ invalid_color_arg:
     SVC #0
     B   shell_loop
 
+handle_heartsay_cmd:
+    SUB     R6, R5, #1              @ R6 = length of the input string
+    LDR     R7, =HEARTSAY_CMD_LEN   @ R7 = length of "heartsay"
+    ADD     R7, R7, #1              @ Add 1 for the space: "heartsay "
+    CMP     R6, R7                  @ Is input length <= "heartsay "?
+    BLE     invalid_heartsay_arg    @ If so, no message was given.
+
+    @ --- Print top of heart ---
+    MOV R7, #SYS_WRITE
+    MOV R0, #STDOUT
+    LDR R1, =heart_top
+    LDR R2, =HEART_TOP_LEN
+    SVC #0;
+
+    @ --- Print user message ---
+    LDR     R1, =input_buffer       @ R1 = start of buffer
+    ADD     R1, R1, R7              @ R1 = start of buffer + len("heartsay ") = message
+    SUB     R2, R6, R7              @ R2 = total_len - len("heartsay ") = msg_len
+    MOV R7, #SYS_WRITE
+    MOV R0, #STDOUT
+    SVC #0;
+
+    @ --- Print bottom of heart ---
+    MOV R7, #SYS_WRITE 
+    MOV R0, #STDOUT
+    LDR R1, =heart_bottom
+    LDR R2, =HEART_BOTTOM_LEN
+    SVC #0;
+    B       shell_loop
+
+invalid_heartsay_arg:
+    MOV R7, #SYS_WRITE
+    MOV R0, #STDOUT
+    LDR R1, =heartsay_usage_msg
+    MOV R2, #HEARTSAY_USAGE_MSG_LEN
+    SVC #0
+    B shell_loop
+
     @strcmp function definition
 
     @ R0: Address of string 1
@@ -298,6 +354,35 @@ are_equal:
     MOV     R0, #0          @ Set return value to 0 (equal)
     POP     {R4, R5, LR}    @ Restore saved registers and Link Register
     BX      LR              @ Return to caller
+
+@ strncmp: Compares up to n characters of two strings.
+@ R0: Address of string 1
+@ R1: Address of string 2
+@ R2: Number of bytes to compare (n)
+@ Returns: R0 = 0 if equal, 1 if not equal
+strncmp:
+    PUSH    {R3, R4, R5, LR}
+    MOV     R5, R2 @ Copy n to R5
+strncmp_loop:
+    CMP     R5, #0
+    BEQ     strncmp_equal
+    LDRB    R3, [R0], #1
+    LDRB    R4, [R1], #1
+    CMP     R3, R4
+    BNE     strncmp_not_equal
+    CMP     R3, #0
+    BEQ     strncmp_equal
+    SUB     R5, R5, #1
+    B       strncmp_loop
+strncmp_not_equal:
+    MOV R0, #1
+    POP {R3, R4, R5, LR}
+    BX LR
+
+strncmp_equal:
+    MOV R0, #0
+    POP {R3, R4, R5, LR}
+    BX LR
 
     .end 
     
