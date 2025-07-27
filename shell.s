@@ -1,3 +1,14 @@
+@ --- Constants for System Calls and File Descriptors ---
+.equ SYS_EXIT, 1
+.equ SYS_READ, 3
+.equ SYS_WRITE, 4
+
+.equ STDIN, 0
+.equ STDOUT, 1
+
+.equ NEWLINE, 10
+.equ NULL, 0
+
 .data
     shell_prompt: .asciz "shell> "
     .set PROMPT_LEN, . - shell_prompt - 1 @ Calculate length: current address - start address - 1
@@ -38,15 +49,15 @@ main:
 
 shell_loop:
     @ 1. Print prompt
-    MOV     R7, #4              @ R7 = SYS_WRITE
-    MOV     R0, #1              @ R0 = 1 ;file descriptor for stdout
+    MOV     R7, #SYS_WRITE              @ R7 = SYS_WRITE
+    MOV     R0, #STDOUT              @ R0 = 1 ;file descriptor for stdout
     LDR     R1, =shell_prompt   @ R1 = Address of the shell_prompt string
     LDR     R2, =PROMPT_LEN     @ R2 = Length of the prompt string
     SVC     #0                  @ Execute system call
 
     @ 2. Read Input
-    MOV     R7, #3                  @ R7 = SYS_READ
-    MOV     R0, #0                  @ R0 = 0 ;file descriptor for stdin 
+    MOV     R7, #SYS_READ                 @ R7 = SYS_READ
+    MOV     R0, #STDIN                  @ R0 = 0 ;file descriptor for stdin 
     LDR     R1, =input_buffer       @ R1 = Address of the input_buffer 
     MOV     R2, #INPUT_BUFFER_SIZE  @ R2 = Max bytes to read 
     SVC     #0                      @ Perform the system call
@@ -58,11 +69,11 @@ shell_loop:
     BEQ     after_strip            @ If R5 is 0 (empty line), skip stripping
 
     @ Calculate address of the last character read: input_buffer + (bytes_read - 1)
-    SUB     R3, R5, #1             @ R3 = bytes_read - 1 (offset to the last character)
+    SUB     R3, R5, #SYS_EXIT             @ R3 = bytes_read - 1 (offset to the last character)
     ADD     R3, R1, R3             @ R3 = address of input_buffer + offset (points to the last char)
 
     LDRB    R4, [R3]               @ Load the character at that position into R4
-    CMP     R4, #10                @ Is it a newline character (ASCII 10)?
+    CMP     R4, #NEWLINE                @ Is it a newline character (ASCII 10)?
     BEQ     replace_with_null      @ If yes, jump to replace it
 
     @ If the last character was NOT a newline, ensure null termination *after* the last actual character
@@ -117,37 +128,37 @@ continue_strcmp:
     B       strings_are_not_equal @ If R0 is not 0, branch to not equal handler
 
 handle_hello_command_match:
-    MOV     R7, #4
-    MOV     R0, #1
+    MOV     R7, #SYS_WRITE
+    MOV     R0, #SYS_EXIT
     LDR     R1, =hello_world_msg
     MOV     R2, #HELLO_WORLD_MSG_LEN
     SVC     #0
     B       shell_loop
 
 handle_help_command_match:
-    MOV     R7, #4
-    MOV     R0, #1
+    MOV     R7, #SYS_WRITE
+    MOV     R0, #SYS_EXIT
     LDR     R1, =help_msg
     LDR     R2, =HELP_MSG_LEN
     SVC     #0
     B       shell_loop
 
 handle_exit_command_match:
-    MOV     R7, #1              @ SYS_EXIT
+    MOV     R7, #SYS_EXIT              @ SYS_EXIT
     MOV     R0, #0              @ Exit code 0
     SVC     #0                  @ Execute system call to exit
 
 handle_clear_command_match:
-    MOV     R7, #4              @ SYS_WRITE
-    MOV     R0, #1              @ File descriptor for stdout
+    MOV     R7, #SYS_WRITE              @ SYS_WRITE
+    MOV     R0, #SYS_EXIT              @ File descriptor for stdout
     LDR     R1, =clear_screen_ansi  @ ANSI escape code to clear the screen
     MOV     R2, #CLEAR_SCREEN_ANSI_LEN  @ Length of the escape code
     SVC     #0                  @ Execute system call to clear the screen
     B       shell_loop
 
 strings_are_not_equal:
-    MOV     R7, #4
-    MOV     R0, #1
+    MOV     R7, #SYS_WRITE
+    MOV     R0, #SYS_EXIT
     LDR     R1, =invalid_input_msg
     MOV     R2, #INVALID_INPUT_MSG_LEN
     SVC     #0
