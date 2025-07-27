@@ -350,7 +350,7 @@ are_equal:
     POP     {R4, R5, LR}    @ Restore saved registers and Link Register
     BX      LR              @ Return to caller
 
-@ strncmp: Compares up to n characters of two strings.
+@ strncmp: Compares up to n characters of two strings. Necessary for the custom functions
 @ R0: Address of string 1
 @ R1: Address of string 2
 @ R2: Number of bytes to compare (n)
@@ -381,3 +381,4 @@ strncmp_equal:
 
     .end 
     
+@Coded by Daniru Dinsara and Imaadh Ifthikar
